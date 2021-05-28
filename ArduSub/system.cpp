@@ -19,23 +19,6 @@ void Sub::init_ardupilot()
     can_mgr.init();
 #endif
 
-#if AP_FEATURE_BOARD_DETECT
-    // Detection won't work until after BoardConfig.init()
-    switch (AP_BoardConfig::get_board_type()) {
-    case AP_BoardConfig::PX4_BOARD_PIXHAWK2:
-        AP_Param::set_by_name("GND_EXT_BUS", 0);
-        celsius.init(0);
-        break;
-    default:
-        AP_Param::set_by_name("GND_EXT_BUS", 1);
-        celsius.init(1);
-        break;
-    }
-#else
-    AP_Param::set_default_by_name("GND_EXT_BUS", 1);
-    celsius.init(1);
-#endif
-
     // init cargo gripper
 #if GRIPPER_ENABLED == ENABLED
     g2.gripper.init();
@@ -52,6 +35,24 @@ void Sub::init_ardupilot()
     battery.init();
 
     barometer.init();
+
+#if AP_FEATURE_BOARD_DETECT
+    // Detection won't work until after BoardConfig.init()
+    switch (AP_BoardConfig::get_board_type()) {
+    case AP_BoardConfig::PX4_BOARD_PIXHAWK2:
+        AP_Param::set_default_by_name("GND_EXT_BUS", 0);
+        break;
+    case AP_BoardConfig::PX4_BOARD_PIXHAWK:
+        AP_Param::set_by_name("GND_EXT_BUS", 1);
+        break;
+    default:
+        AP_Param::set_default_by_name("GND_EXT_BUS", 1);
+        break;
+    }
+#else
+    AP_Param::set_default_by_name("GND_EXT_BUS", 1);
+#endif
+    celsius.init(barometer.external_bus());
 
     // setup telem slots with serial ports
     gcs().setup_uarts();
@@ -93,11 +94,9 @@ void Sub::init_ardupilot()
     wp_nav.set_terrain(&terrain);
 #endif
 
-    pos_control.set_dt(MAIN_LOOP_SECONDS);
-
-    // init the optical flow sensor
 #if OPTFLOW == ENABLED
-    init_optflow();
+    // initialise optical flow sensor
+    optflow.init(MASK_LOG_OPTFLOW);
 #endif
 
 #if HAL_MOUNT_ENABLED
@@ -165,6 +164,8 @@ void Sub::init_ardupilot()
     g2.scripting.init();
 #endif // ENABLE_SCRIPTING
 
+    g2.airspeed.init();
+
     // we don't want writes to the serial port to cause us to pause
     // mid-flight, so set the serial ports non-blocking once we are
     // ready to fly
@@ -174,9 +175,6 @@ void Sub::init_ardupilot()
     mainloop_failsafe_enable();
 
     ins.set_log_raw_bit(MASK_LOG_IMU_RAW);
-
-    // disable safety if requested
-    BoardConfig.init_safety();
 
     // flag that initialisation has completed
     ap.initialised = true;

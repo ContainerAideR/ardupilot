@@ -5,6 +5,8 @@
 #define HAL_MEM_CLASS HAL_MEM_CLASS_1000
 #define HAL_OS_POSIX_IO 1
 #define HAL_OS_SOCKETS 1
+#define HAL_DSHOT_ALARM 0
+#define HAL_WITH_ESC_TELEM 1
 
 #define AP_FLASHSTORAGE_TYPE 3
 
@@ -34,7 +36,7 @@
 #endif
 
 #ifndef HAL_STORAGE_SIZE
-#define HAL_STORAGE_SIZE            16384
+#define HAL_STORAGE_SIZE            32768
 #endif
 
 #define HAL_STORAGE_SIZE_AVAILABLE  HAL_STORAGE_SIZE

@@ -78,6 +78,7 @@ const AP_Scheduler::Task Sub::scheduler_tasks[] = {
 #ifdef USERHOOK_SUPERSLOWLOOP
     SCHED_TASK(userhook_SuperSlowLoop, 1,   75),
 #endif
+    SCHED_TASK(read_airspeed,          10,    100),
 };
 
 void Sub::get_scheduler_tasks(const AP_Scheduler::Task *&tasks,
@@ -177,7 +178,7 @@ void Sub::ten_hz_logging_loop()
     // log attitude data if we're not already logging at the higher rate
     if (should_log(MASK_LOG_ATTITUDE_MED) && !should_log(MASK_LOG_ATTITUDE_FAST)) {
         Log_Write_Attitude();
-        logger.Write_Rate(&ahrs_view, motors, attitude_control, pos_control);
+        ahrs_view.Write_Rate(motors, attitude_control, pos_control);
         if (should_log(MASK_LOG_PID)) {
             logger.Write_PID(LOG_PIDR_MSG, attitude_control.get_rate_roll_pid().get_pid_info());
             logger.Write_PID(LOG_PIDP_MSG, attitude_control.get_rate_pitch_pid().get_pid_info());
@@ -194,11 +195,11 @@ void Sub::ten_hz_logging_loop()
     if (should_log(MASK_LOG_RCOUT)) {
         logger.Write_RCOUT();
     }
-    if (should_log(MASK_LOG_NTUN) && mode_requires_GPS(control_mode)) {
+    if (should_log(MASK_LOG_NTUN) && (mode_requires_GPS(control_mode) || !mode_has_manual_throttle(control_mode))) {
         pos_control.write_log();
     }
     if (should_log(MASK_LOG_IMU) || should_log(MASK_LOG_IMU_FAST) || should_log(MASK_LOG_IMU_RAW)) {
-        logger.Write_Vibration();
+        AP::ins().Write_Vibration();
     }
     if (should_log(MASK_LOG_CTUN)) {
         attitude_control.control_monitor_log();
@@ -211,7 +212,7 @@ void Sub::twentyfive_hz_logging()
 {
     if (should_log(MASK_LOG_ATTITUDE_FAST)) {
         Log_Write_Attitude();
-        logger.Write_Rate(&ahrs_view, motors, attitude_control, pos_control);
+        ahrs_view.Write_Rate(motors, attitude_control, pos_control);
         if (should_log(MASK_LOG_PID)) {
             logger.Write_PID(LOG_PIDR_MSG, attitude_control.get_rate_roll_pid().get_pid_info());
             logger.Write_PID(LOG_PIDP_MSG, attitude_control.get_rate_pitch_pid().get_pid_info());
@@ -222,7 +223,7 @@ void Sub::twentyfive_hz_logging()
 
     // log IMU data if we're not already logging at the higher rate
     if (should_log(MASK_LOG_IMU) && !should_log(MASK_LOG_IMU_RAW)) {
-        logger.Write_IMU();
+        AP::ins().Write_IMU();
     }
 }
 
@@ -322,6 +323,30 @@ bool Sub::control_check_barometer()
         return false;
     }
 #endif
+    return true;
+}
+
+// vehicle specific waypoint info helpers
+bool Sub::get_wp_distance_m(float &distance) const
+{
+    // see GCS_MAVLINK_Sub::send_nav_controller_output()
+    distance = sub.wp_nav.get_wp_distance_to_destination() * 0.01;
+    return true;
+}
+
+// vehicle specific waypoint info helpers
+bool Sub::get_wp_bearing_deg(float &bearing) const
+{
+    // see GCS_MAVLINK_Sub::send_nav_controller_output()
+    bearing = sub.wp_nav.get_wp_bearing_to_destination() * 0.01;
+    return true;
+}
+
+// vehicle specific waypoint info helpers
+bool Sub::get_wp_crosstrack_error_m(float &xtrack_error) const
+{
+    // no crosstrack error reported, see GCS_MAVLINK_Sub::send_nav_controller_output()
+    xtrack_error = 0;
     return true;
 }
 

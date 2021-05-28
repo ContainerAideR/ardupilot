@@ -65,10 +65,13 @@ void Rover::init_ardupilot()
     AP::compass().init();
 
     // initialise rangefinder
+    rangefinder.set_log_rfnd_bit(MASK_LOG_RANGEFINDER);
     rangefinder.init(ROTATION_NONE);
 
+#if HAL_PROXIMITY_ENABLED
     // init proximity sensor
     g2.proximity.init();
+#endif
 
     // init beacons used for non-gps position estimation
     g2.beacon.init();
@@ -122,9 +125,6 @@ void Rover::init_ardupilot()
 
     rover.g2.sailboat.init();
 
-    // disable safety if requested
-    BoardConfig.init_safety();
-
     // flag that initialisation has completed
     initialised = true;
 }
@@ -140,7 +140,7 @@ void Rover::startup_ground(void)
 
     #if(GROUND_START_DELAY > 0)
         gcs().send_text(MAV_SEVERITY_NOTICE, "<startup_ground> With delay");
-        delay(GROUND_START_DELAY * 1000);
+        hal.scheduler->delay(GROUND_START_DELAY * 1000);
     #endif
 
     // IMU ground start

@@ -20,6 +20,8 @@
 #include <stdint.h>
 #include "AP_HAL_Namespace.h"
 
+class ExpandingString;
+
 /**
  * Raw CAN frame, as passed to/from the CAN driver.
  */
@@ -94,8 +96,11 @@ public:
     enum OperatingMode {
         PassThroughMode,
         NormalMode,
-        SilentMode
+        SilentMode,
+        FilteredMode
     };
+
+    OperatingMode get_operating_mode() { return mode_; }
 
     typedef uint16_t CanIOFlags;
     static const CanIOFlags Loopback = 1;
@@ -188,10 +193,7 @@ public:
     }
 
     //Get status info of the interface
-    virtual uint32_t get_stats(char* data, uint32_t max_size)
-    {
-        return 0;
-    }
+    virtual void get_stats(ExpandingString &str) {}
 
     // return true if busoff was detected and not cleared
     virtual bool is_busoff() const
@@ -206,4 +208,7 @@ public:
 
     // return true if init was called and successful
     virtual bool is_initialized() const = 0;
+protected:
+    uint32_t bitrate_;
+    OperatingMode mode_;
 };

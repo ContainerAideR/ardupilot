@@ -25,6 +25,7 @@
 #include <inttypes.h>
 
 #include <AP_Math/AP_Math.h>
+#include <AP_ExternalAHRS/AP_ExternalAHRS.h>
 
 #include "AP_InertialSensor.h"
 
@@ -79,6 +80,10 @@ public:
     // get a startup banner to output to the GCS
     virtual bool get_output_banner(char* banner, uint8_t banner_len) { return false; }
 
+#if HAL_EXTERNAL_AHRS_ENABLED
+    virtual void handle_external(const AP_ExternalAHRS::ins_data_message_t &pkt) {}
+#endif
+
     /*
       device driver IDs. These are used to fill in the devtype field
       of the device ID, which shows up as INS*ID* parameters to
@@ -112,6 +117,10 @@ public:
         DEVTYPE_INS_ICM20602 = 0x2F,
         DEVTYPE_INS_ICM20601 = 0x30,
         DEVTYPE_INS_ADIS1647X = 0x31,
+        DEVTYPE_SERIAL       = 0x32,
+        DEVTYPE_INS_ICM40609 = 0x33,
+        DEVTYPE_INS_ICM42688 = 0x34,
+        DEVTYPE_INS_ICM42605 = 0x35,
     };
 
 protected:
@@ -320,6 +329,9 @@ protected:
     void notify_accel_fifo_reset(uint8_t instance);
     void notify_gyro_fifo_reset(uint8_t instance);
     
+    // log an unexpected change in a register for an IMU
+    void log_register_change(uint32_t bus_id, const AP_HAL::Device::checkreg &reg);
+
     // note that each backend is also expected to have a static detect()
     // function which instantiates an instance of the backend sensor
     // driver if the sensor is available
@@ -329,5 +341,9 @@ private:
     bool should_log_imu_raw() const;
     void log_accel_raw(uint8_t instance, const uint64_t sample_us, const Vector3f &accel);
     void log_gyro_raw(uint8_t instance, const uint64_t sample_us, const Vector3f &gryo);
+
+    // logging
+    void Write_ACC(const uint8_t instance, const uint64_t sample_us, const Vector3f &accel) const; // Write ACC data packet: raw accel data
+    void Write_GYR(const uint8_t instance, const uint64_t sample_us, const Vector3f &gyro) const;  // Write GYR data packet: raw gyro data
 
 };

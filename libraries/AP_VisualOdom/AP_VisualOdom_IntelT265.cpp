@@ -38,6 +38,11 @@ void AP_VisualOdom_IntelT265::handle_vision_position_estimate(uint64_t remote_ti
             _align_camera = false;
         }
     }
+    if (_align_posxy || _align_posz) {
+        if (align_position_to_ahrs(pos, _align_posxy, _align_posz)) {
+            _align_posxy = _align_posz = false;
+        }
+    }
 
     // rotate position and attitude to align with vehicle
     rotate_and_correct_position(pos);
@@ -60,7 +65,7 @@ void AP_VisualOdom_IntelT265::handle_vision_position_estimate(uint64_t remote_ti
     att.to_euler(roll, pitch, yaw);
 
     // log sensor data
-    AP::logger().Write_VisualPosition(remote_time_us, time_ms, pos.x, pos.y, pos.z, degrees(roll), degrees(pitch), wrap_360(degrees(yaw)), posErr, angErr, reset_counter, !consume);
+    Write_VisualPosition(remote_time_us, time_ms, pos.x, pos.y, pos.z, degrees(roll), degrees(pitch), wrap_360(degrees(yaw)), posErr, angErr, reset_counter, !consume);
 
     // store corrected attitude for use in pre-arm checks
     _attitude_last = att;
@@ -86,7 +91,7 @@ void AP_VisualOdom_IntelT265::handle_vision_speed_estimate(uint64_t remote_time_
     // record time for health monitoring
     _last_update_ms = AP_HAL::millis();
 
-    AP::logger().Write_VisualVelocity(remote_time_us, time_ms, vel_corrected, _frontend.get_vel_noise(), reset_counter, !consume);
+    Write_VisualVelocity(remote_time_us, time_ms, vel_corrected, reset_counter, !consume);
 }
 
 // apply rotation and correction to position
@@ -124,14 +129,13 @@ void AP_VisualOdom_IntelT265::rotate_attitude(Quaternion &attitude) const
 // use sensor provided attitude to calculate rotation to align sensor with AHRS/EKF attitude
 bool AP_VisualOdom_IntelT265::align_sensor_to_vehicle(const Vector3f &position, const Quaternion &attitude)
 {
-    // fail immediately if ahrs cannot provide attitude
-    Quaternion ahrs_quat;
-    if (!AP::ahrs().get_quaternion(ahrs_quat)) {
+    // do not align to ahrs if it is using us as its yaw source
+    if (AP::ahrs().is_ext_nav_used_for_yaw()) {
         return false;
     }
 
-    // if ahrs's yaw is from the compass, wait until it has been initialised
-    if (!AP::ahrs().is_ext_nav_used_for_yaw() && !AP::ahrs().yaw_initialised()) {
+    // do not align until ahrs yaw initialised
+    if (!AP::ahrs().initialised() || !AP::ahrs().yaw_initialised()) {
         return false;
     }
 
@@ -155,11 +159,9 @@ bool AP_VisualOdom_IntelT265::align_sensor_to_vehicle(const Vector3f &position, 
     const float sens_yaw = att_corrected.get_euler_yaw();
 
     // trim yaw by difference between ahrs and sensor yaw
-    Vector3f angle_diff;
-    ahrs_quat.angular_difference(att_corrected).to_axis_angle(angle_diff);
     const float yaw_trim_orig = _yaw_trim;
-    _yaw_trim = angle_diff.z;
-    gcs().send_text(MAV_SEVERITY_CRITICAL, "VisOdom: yaw shifted %d to %d deg",
+    _yaw_trim = wrap_2PI(AP::ahrs().get_yaw() - sens_yaw);
+    gcs().send_text(MAV_SEVERITY_INFO, "VisOdom: yaw shifted %d to %d deg",
                     (int)degrees(_yaw_trim - yaw_trim_orig),
                     (int)wrap_360(degrees(sens_yaw + _yaw_trim)));
 
@@ -183,6 +185,32 @@ bool AP_VisualOdom_IntelT265::align_sensor_to_vehicle(const Vector3f &position, 
 
     // update position correction to remove change due to rotation
     _pos_correction += (pos_orig - pos_new);
+
+    return true;
+}
+
+// align position with ahrs position by updating _pos_correction
+// sensor_pos should be the position directly from the sensor with only scaling applied (i.e. no yaw or position corrections)
+bool AP_VisualOdom_IntelT265::align_position_to_ahrs(const Vector3f &sensor_pos, bool align_xy, bool align_z)
+{
+    // fail immediately if ahrs cannot provide position
+    Vector3f ahrs_pos_ned;
+    if (!AP::ahrs().get_relative_position_NED_origin(ahrs_pos_ned)) {
+        return false;
+    }
+
+    // calculate position with current rotation and correction
+    Vector3f pos_orig = sensor_pos;
+    rotate_and_correct_position(pos_orig);
+
+    // update position correction
+    if (align_xy) {
+        _pos_correction.x += (ahrs_pos_ned.x - pos_orig.x);
+        _pos_correction.y += (ahrs_pos_ned.y - pos_orig.y);
+    }
+    if (align_z) {
+        _pos_correction.z += (ahrs_pos_ned.z - pos_orig.z);
+    }
 
     return true;
 }

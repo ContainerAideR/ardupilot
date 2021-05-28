@@ -43,6 +43,9 @@ static AP_Filesystem_Param fs_param;
 #include "AP_Filesystem_Sys.h"
 static AP_Filesystem_Sys fs_sys;
 
+#include "AP_Filesystem_Mission.h"
+static AP_Filesystem_Mission fs_mission;
+
 /*
   mapping from filesystem prefix to backend
  */
@@ -53,11 +56,13 @@ const AP_Filesystem::Backend AP_Filesystem::backends[] = {
 #endif
     { "@PARAM/", fs_param },
     { "@SYS/", fs_sys },
+    { "@SYS", fs_sys },
+    { "@MISSION/", fs_mission },
 };
 
 #define MAX_FD_PER_BACKEND 256U
 #define NUM_BACKENDS ARRAY_SIZE(backends)
-#define LOCAL_BACKEND backends[0];
+#define LOCAL_BACKEND backends[0]
 #define BACKEND_IDX(backend) (&(backend) - &backends[0])
 
 /*
@@ -214,6 +219,28 @@ bool AP_Filesystem::set_mtime(const char *filename, const uint32_t mtime_sec)
     const Backend &backend = backend_by_path(filename);
     return backend.fs.set_mtime(filename, mtime_sec);
 }
+
+// if filesystem is not running then try a remount
+bool AP_Filesystem::retry_mount(void)
+{
+    return LOCAL_BACKEND.fs.retry_mount();
+}
+
+// unmount filesystem for reboot
+void AP_Filesystem::unmount(void)
+{
+    return LOCAL_BACKEND.fs.unmount();
+}
+
+/*
+  load a file to memory as a single chunk. Use only for small files
+ */
+FileData *AP_Filesystem::load_file(const char *filename)
+{
+    const Backend &backend = backend_by_path(filename);
+    return backend.fs.load_file(filename);
+}
+
 
 namespace AP
 {

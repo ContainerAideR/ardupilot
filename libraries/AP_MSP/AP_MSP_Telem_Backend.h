@@ -89,7 +89,7 @@ protected:
         ALTITUDE,
         ANALOG,
         BATTERY_STATE,
-#ifdef HAVE_AP_BLHELI_SUPPORT
+#if HAL_WITH_ESC_TELEM
         ESC_SENSOR_DATA,
 #endif
         RTC_DATETIME,
@@ -106,7 +106,7 @@ protected:
         MSP_ALTITUDE,
         MSP_ANALOG,
         MSP_BATTERY_STATE,
-#ifdef HAVE_AP_BLHELI_SUPPORT
+#if HAL_WITH_ESC_TELEM
         MSP_ESC_SENSOR_DATA,
 #endif
         MSP_RTC
@@ -164,6 +164,7 @@ protected:
     void msp_handle_gps(const MSP::msp_gps_data_message_t &pkt);
     void msp_handle_compass(const MSP::msp_compass_data_message_t &pkt);
     void msp_handle_baro(const MSP::msp_baro_data_message_t &pkt);
+    void msp_handle_airspeed(const MSP::msp_airspeed_data_message_t &pkt);
 
     // implementation specific helpers
     // custom masks are needed for vendor specific settings

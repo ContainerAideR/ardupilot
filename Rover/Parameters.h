@@ -81,6 +81,9 @@ public:
         k_param_cli_enabled_old,    // unused
         k_param_gcs3,
         k_param_gcs_pid_mask,
+        k_param_gcs4,
+        k_param_gcs5,
+        k_param_gcs6,
 
         //
         // 130: Sensor parameters
@@ -114,7 +117,7 @@ public:
         k_param_auto_trigger_pin,
         k_param_auto_kickstart,
         k_param_turn_circle,  // unused
-        k_param_turn_max_g,
+        k_param_turn_max_g_old, // unused
 
         //
         // 160: Radio settings
@@ -236,7 +239,6 @@ public:
     AP_Int8     ch7_option;
     AP_Int8     auto_trigger_pin;
     AP_Float    auto_kickstart;
-    AP_Float    turn_max_g;
     AP_Int16    gcs_pid_mask;
 
     // Throttle
@@ -326,8 +328,10 @@ public:
     // fence library
     AC_Fence fence;
 
+#if HAL_PROXIMITY_ENABLED
     // proximity library
     AP_Proximity proximity;
+#endif
 
     // avoidance library
     AC_Avoid avoid;
